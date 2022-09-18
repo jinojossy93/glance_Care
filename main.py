@@ -1,12 +1,15 @@
-
-
-class Member:
-    fullname: str = ""
+class Relations:
     SPOUSE = 0
     CHILD = 1
     SIBLING = 2
 
 
+class Member:
+    fullname: str = ""
+    sibling: list[str] = []
+    spouse: list[str] = []
+    child: list[str] = []
+    
     def __init__(self, fullname) -> None:
         self.fullname = fullname
     
@@ -49,61 +52,77 @@ class Tree:
                             return relations[mem][index][rel_key]
             
 
-    def relation_with(self, m2, m1, relation=Member.CHILD):
-        m1_ref = self.find_member_m(self.relations, m1)
-        m2_ref = self.find_member_m(self.relations, m2)
-        if not m2_ref and m1_ref:
-            if relation == Member.SIBLING or relation == Member.SPOUSE:
-                if str(m1) in self.relations:
-                    m1_ref["sibling_spouse"].append({
-                        str(m2): {
-                            "sibling_spouse": []
-                        }
-                    })
-                else:
-                    m1_ref["sibling_spouse"].append({
-                        str(m2): {
-                                "sibling_spouse": []
-                            }
-                        })
+    def relation_with(self, m1, m2, relation=Relations.CHILD):
+        m1_ref = self.relations.get(str(m1))
+        if not m1_ref:
+            self.relations[str(m1)] = m1
+            m1_ref = self.relations.get(str(m1))
+        m2_ref = self.relations.get(str(m2))
+        if not m2_ref:
+            self.relations[str(m2)] = m2
+            m2_ref = self.relations.get(str(m2))
+        if relation == Relations.CHILD:
+            if not m2_ref.child:
+                m2_ref.child = [str(m1_ref)]
             else:
-                m1_ref[str(m2)] = {
-                        "sibling_spouse": []
-                    }
+                m2_ref.child.append(str(m1_ref))
+        elif relation == Relations.SPOUSE:
+            if m2_ref.spouse:
+                m2_ref.spouse.append(str(m1_ref))
+            else:
+                m2_ref.spouse = [str(m1_ref)]
         else:
-            if relation == Member.SIBLING or relation == Member.SPOUSE:
-                self.relations[str(m1)] = {
-                            "sibling_spouse": [{
-                                str(m2): {
-                                    "sibling_spouse": []
-                                }
-                            }]
-                        }
+            if m2_ref.sibling:
+                m2_ref.sibling.append(str(m1_ref))
             else:
-                self.relations[str(m1)] = {
-                            "sibling_spouse": [],
-                            str(m2): {
-                                "sibling_spouse": []
-                            }
-                        }
+                m2_ref.sibling = [str(m1_ref)]
+    def get_closest_relationship_degree(self, m1, m2):
+        result = []
+        # if its the same member just print 1 and return
+        if m1 == m2:
+            print(1)
+            return
+        count = 0
+        m1_ref = self.relations.get(str(m1))
+        # check the relationship from first member to second
+        # if the first member is a node in lower level the relation path may not successful
+        count, match = self.check_m(m1_ref, m2, count)
+        if match:
+            result.append(count)
+        else:
+            count = 0
+            count, match = self.check_m(m2, m1, count)
+            if match:
+                result.append(count)
 
+        # taking the minimum value from the possible multiple length from relationship traversal
+        print(min(result) if result else 0)
 
+    def check_m(self, m1, m2, count):
+        match = False
+        for mc in m1.child:
+            c, match = self.check_m(self.relations.get(mc), m2, count)
+            count += 1
+            if match:
+                return count+c, match
+            count -= c
+        if m1.sibling:
+            count, match = self.count_m_list(m1.sibling, m2, count)
+            if match:
+                return count, match
+        if m1.spouse:
+            count, match = self.count_m_list(m1.spouse, m2, count)
+            if match:
+                return count, match
+        return count, match
 
-if __name__ == "__main__":
-    tree = Tree()
-    jenny = Member(fullname="Jenny Doe")
-    jimmy = Member(fullname="Jimmy Doe")
-    john = Member(fullname="John Doe")
-    jane = Member(fullname="Jane Doe")
-    james = Member(fullname="James Doe")
-    jezza = Member(fullname="Jezza Doe")
-    jason = Member(fullname="Jason Doe")
+    def count_m_list(self, l, m, c):
+        for mkey in l:
+            c += 1
+            if mkey == str(m):
+                return c, True
+            count, match = self.check_m(self.relations.get(mkey), m, c)
+            if match:
+                return count, match
+        return c, False
 
-    tree.relation_with(jimmy, jenny, relation=Member.CHILD)  
-    tree.relation_with(jezza, jimmy, relation=Member.CHILD)  
-    tree.relation_with(john, jenny, relation=Member.CHILD)  
-    tree.relation_with(jane, john, relation=Member.SPOUSE)
-    tree.relation_with(james, jane, relation=Member.SIBLING)
-    tree.relation_with(jason, james, relation=Member.CHILD)
-    tree.relation_with(jezza, jason, relation=Member.SPOUSE)
-    print(tree)
